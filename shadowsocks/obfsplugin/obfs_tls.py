@@ -152,6 +152,8 @@ class tls_ticket_auth(plain.plain):
         verify = buf[11:33]
         if hmac.new(self.server_info.key + self.server_info.data.client_id, verify, hashlib.sha1).digest()[:10] != buf[33:43]:
             raise Exception('client_decode data error')
+        if hmac.new(self.server_info.key + self.server_info.data.client_id, buf[:-10], hashlib.sha1).digest()[:10] != buf[-10:]:
+            raise Exception('client_decode data error')
         return (b'', True)
 
     def server_encode(self, buf):
@@ -170,8 +172,13 @@ class tls_ticket_auth(plain.plain):
         data = self.tls_version + self.pack_auth_data(self.client_id) + b"\x20" + self.client_id + binascii.unhexlify(b"c02f000005ff01000100")
         data = b"\x02\x00" + struct.pack('>H', len(data)) + data #server hello
         data = b"\x16\x03\x03" + struct.pack('>H', len(data)) + data
+        if random.randint(0, 8) < 1:
+            ticket = os.urandom((struct.unpack('>H', os.urandom(2))[0] % 164) * 2 + 64)
+            ticket = struct.pack('>H', len(ticket) + 4) + b"\x04\x00" + struct.pack('>H', len(ticket))
+            data += b"\x16" + self.tls_version + ticket #New session ticket
         data += b"\x14" + self.tls_version + b"\x00\x01\x01" #ChangeCipherSpec
-        data += b"\x16" + self.tls_version + b"\x00\x20" + os.urandom(22) #Finished
+        finish_len = random.choice([32, 40])
+        data += b"\x16" + self.tls_version + struct.pack('>H', finish_len) + os.urandom(finish_len - 10) #Finished
         data += hmac.new(self.server_info.key + self.client_id, data, hashlib.sha1).digest()[:10]
         return data
 
@@ -203,19 +210,19 @@ class tls_ticket_auth(plain.plain):
             self.recv_buffer += buf
             buf = self.recv_buffer
             verify = buf
-            verify_len = 43 - 10
             if len(buf) < 43:
                 raise Exception('server_decode data error')
             if not match_begin(buf, b"\x14" + self.tls_version + b"\x00\x01\x01"): #ChangeCipherSpec
                 raise Exception('server_decode data error')
             buf = buf[6:]
-            if not match_begin(buf, b"\x16" + self.tls_version + b"\x00\x20"): #Finished
+            if not match_begin(buf, b"\x16" + self.tls_version + b"\x00"): #Finished
+                raise Exception('server_decode data error')
+            verify_len = struct.unpack('>H', buf[3:5])[0] + 1 # 11 - 10
+            if len(verify) < verify_len + 10:
                 raise Exception('server_decode data error')
             if hmac.new(self.server_info.key + self.client_id, verify[:verify_len], hashlib.sha1).digest()[:10] != verify[verify_len:verify_len+10]:
                 raise Exception('server_decode data error')
-            if len(buf) < 37:
-                raise Exception('server_decode data error')
-            self.recv_buffer = buf[37:]
+            self.recv_buffer = verify[verify_len + 10:]
             self.handshake_status = 8
             return self.server_decode(b'')
 

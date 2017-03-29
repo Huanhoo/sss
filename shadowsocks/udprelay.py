@@ -928,6 +928,7 @@ class UDPRelay(object):
         server_info.key = encrypt.encrypt_key(self._password, self._method)
         server_info.head_len = 30
         server_info.tcp_mss = 1440
+        server_info.buffer_size = BUF_SIZE
         self._protocol.set_server_info(server_info)
 
         self._sockets = set()
@@ -1228,9 +1229,13 @@ class UDPRelay(object):
 
             logging.debug('UDP port %5d sockets %d' % (self._listen_port, len(self._sockets)))
 
-            common.connect_log('UDP data to %s:%d via port %d' %
+            if uid is None:
+                user_id = self._listen_port
+            else:
+                user_id = struct.unpack('<I', client_uid)[0]
+            common.connect_log('UDP data to %s:%d via port %d by UID %d' %
                         (common.to_str(server_addr), server_port,
-                            self._listen_port))
+                            self._listen_port, user_id))
         else:
             client, client_uid = client_pair
         self._cache.clear(self._udp_cache_size)

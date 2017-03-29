@@ -165,7 +165,7 @@ class TCPRelayHandler(object):
         server_info.key_str = common.to_bytes(config['password'])
         server_info.key = self._encryptor.cipher_key
         server_info.head_len = 30
-        server_info.tcp_mss = 1460
+        server_info.tcp_mss = 1448
         self._obfs.set_server_info(server_info)
 
         self._protocol = obfs.obfs(config['protocol'])
@@ -183,7 +183,8 @@ class TCPRelayHandler(object):
         server_info.key_str = common.to_bytes(config['password'])
         server_info.key = self._encryptor.cipher_key
         server_info.head_len = 30
-        server_info.tcp_mss = 1460
+        server_info.tcp_mss = 1448
+        server_info.buffer_size = BUF_SIZE
         self._protocol.set_server_info(server_info)
 
         self._redir_list = config.get('redirect', ["*#0.0.0.0:0"])
@@ -462,7 +463,7 @@ class TCPRelayHandler(object):
             return ("0.0.0.0", 0)
 
     def _handel_protocol_error(self, client_address, ogn_data):
-        logging.warn("Protocol ERROR, TCP ogn data %s from %s:%d via port %d" % (binascii.hexlify(ogn_data), client_address[0], client_address[1], self._server._listen_port))
+        logging.warn("Protocol ERROR, TCP ogn data %s from %s:%d via port %d by UID %d" % (binascii.hexlify(ogn_data), client_address[0], client_address[1], self._server._listen_port, self._user_id))
         self._encrypt_correct = False
         #create redirect or disconnect by hash code
         host, port = self._get_redirect_host(client_address, ogn_data)
@@ -572,9 +573,9 @@ class TCPRelayHandler(object):
                     data = self._handel_protocol_error(self._client_address, ogn_data)
                     header_result = parse_header(data)
             connecttype, remote_addr, remote_port, header_length = header_result
-            common.connect_log('%s connecting %s:%d via port %d' %
+            common.connect_log('%s connecting %s:%d via port %d by UID %d' %
                         ((connecttype == 0) and 'TCP' or 'UDP',
-                            common.to_str(remote_addr), remote_port, self._server._listen_port))
+                            common.to_str(remote_addr), remote_port, self._server._listen_port, self._user_id))
             self._remote_address = (common.to_str(remote_addr), remote_port)
             self._remote_udp = (connecttype != 0)
             # pause reading
@@ -643,15 +644,15 @@ class TCPRelayHandler(object):
             if self._forbidden_iplist:
                 if common.to_str(sa[0]) in self._forbidden_iplist:
                     if self._remote_address:
-                        raise Exception('IP %s is in forbidden list, when connect to %s:%d via port %d' %
-                            (common.to_str(sa[0]), self._remote_address[0], self._remote_address[1], self._server._listen_port))
+                        raise Exception('IP %s is in forbidden list, when connect to %s:%d via port %d by UID %d' %
+                            (common.to_str(sa[0]), self._remote_address[0], self._remote_address[1], self._server._listen_port, self._user_id))
                     raise Exception('IP %s is in forbidden list, reject' %
                                     common.to_str(sa[0]))
             if self._forbidden_portset:
                 if sa[1] in self._forbidden_portset:
                     if self._remote_address:
-                        raise Exception('Port %d is in forbidden list, when connect to %s:%d via port %d' %
-                            (sa[1], self._remote_address[0], self._remote_address[1], self._server._listen_port))
+                        raise Exception('Port %d is in forbidden list, when connect to %s:%d via port %d by UID %d' %
+                            (sa[1], self._remote_address[0], self._remote_address[1], self._server._listen_port, self._user_id))
                     raise Exception('Port %d is in forbidden list, reject' % sa[1])
         remote_sock = socket.socket(af, socktype, proto)
         self._remote_sock = remote_sock
