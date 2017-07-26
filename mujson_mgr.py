@@ -214,11 +214,11 @@ def print_server_help():
 	print('''usage: python mujson_manage.py -a|-d|-e|-c|-l [OPTION]...
 
 Actions:
-  -a ADD               add/edit a user
-  -d DELETE            delete a user
-  -e EDIT              edit a user
-  -c CLEAR             set u/d to zero
-  -l LIST              display a user infomation or all users infomation
+  -a                   add/edit a user
+  -d                   delete a user
+  -e                   edit a user
+  -c                   set u&d to zero
+  -l                   display a user infomation or all users infomation
 
 Options:
   -u USER              the user name
@@ -232,6 +232,8 @@ Options:
   -t TRANSFER          max transfer for G bytes, default: 8388608 (8 PB or 8192 TB)
   -f FORBID            set forbidden ports. Example (ban 1~79 and 81~100): -f "1-79,81-100"
   -i MUID              set sub id to display (only work with -l)
+  -s SPEED             set speed_limit_per_con
+  -S SPEED             set speed_limit_per_user
 
 General options:
   -h, --help           show this help message and exit
@@ -239,7 +241,7 @@ General options:
 
 
 def main():
-	shortopts = 'adeclu:i:p:k:O:o:G:g:m:t:f:h'
+	shortopts = 'adeclu:i:p:k:O:o:G:g:m:t:f:hs:S:'
 	longopts = ['help']
 	action = None
 	user = {}
@@ -249,32 +251,24 @@ def main():
 			'+2': 'tls1.2_ticket_auth_compatible',
 			'2': 'tls1.2_ticket_auth'}
 	fast_set_protocol = {'0': 'origin',
-			'+ota': 'verify_sha1_compatible',
-			'ota': 'verify_sha1',
-			'a1': 'auth_sha1',
-			'+a1': 'auth_sha1_compatible',
-			'a2': 'auth_sha1_v2',
-			'+a2': 'auth_sha1_v2_compatible',
-			'a4': 'auth_sha1_v4',
-			'+a4': 'auth_sha1_v4_compatible',
+			's4': 'auth_sha1_v4',
+			'+s4': 'auth_sha1_v4_compatible',
 			'am': 'auth_aes128_md5',
 			'as': 'auth_aes128_sha1',
+			'ca': 'auth_chain_a',
 			}
-	fast_set_method = {'a0': 'aes-128-cfb',
-			'a1': 'aes-192-cfb',
-			'a2': 'aes-256-cfb',
+	fast_set_method = {'0': 'none',
+			'a1c': 'aes-128-cfb',
+			'a2c': 'aes-192-cfb',
+			'a3c': 'aes-256-cfb',
 			'r': 'rc4-md5',
 			'r6': 'rc4-md5-6',
 			'c': 'chacha20',
 			'ci': 'chacha20-ietf',
 			's': 'salsa20',
-			'b': 'bf-cfb',
-			'm0': 'camellia-128-cfb',
-			'm1': 'camellia-192-cfb',
-			'm2': 'camellia-256-cfb',
-			'a0t': 'aes-128-ctr',
-			'a1t': 'aes-192-ctr',
-			'a2t': 'aes-256-ctr'}
+			'a1': 'aes-128-ctr',
+			'a2': 'aes-192-ctr',
+			'a3': 'aes-256-ctr'}
 	try:
 		optlist, args = getopt.getopt(sys.argv[1:], shortopts, longopts)
 		for key, value in optlist:
@@ -310,6 +304,10 @@ def main():
 				user['obfs_param'] = value
 			elif key == '-G':
 				user['protocol_param'] = value
+			elif key == '-s':
+				user['speed_limit_per_con'] = int(value)
+			elif key == '-S':
+				user['speed_limit_per_user'] = int(value)
 			elif key == '-m':
 				if value in fast_set_method:
 					user['method'] = fast_set_method[value]
